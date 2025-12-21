@@ -198,7 +198,7 @@ router.post("/", async (req, res) => {
       finalSizeId,
       finalPlacementId,
       part_weight || null,
-      weight_unit || 'kg',
+      weight_unit || "kg",
     ];
 
     const { rows } = await client.query(insertQuery, values);
@@ -240,15 +240,36 @@ router.post("/", async (req, res) => {
   }
 });
 
-
-// GET /api/kanban-master/with-details
+// GET /api/kanban-master/with-details - VERSION 2 (lebih spesifik)
 router.get("/with-details", async (req, res) => {
   try {
     const { date_from, date_to, vendor_name, part_code, part_name } = req.query;
 
     let query = `
       SELECT 
-        km.*,
+        km.id,
+        km.part_id,
+        km.part_code,
+        km.part_name,
+        km.part_size,
+        km.size_id,
+        km.part_material,
+        km.part_types,
+        km.qty_per_box,
+        km.part_price,
+        km.part_weight,
+        km.weight_unit,  -- ✅ weight_unit diambil secara eksplisit
+        km.customer_special,
+        km.model,
+        km.vendor_id,
+        km.vendor_type,
+        km.stock_level_to,
+        km.placement_id,
+        km.unit,
+        km.created_by,
+        km.created_at,
+        km.updated_at,
+        km.is_active,
         ps.size_name,
         vd.vendor_name,
         vd.vendor_code,
@@ -262,7 +283,7 @@ router.get("/with-details", async (req, res) => {
       LEFT JOIN vendor_detail vd ON km.vendor_id = vd.id
       LEFT JOIN employees e ON km.created_by = e.id
       LEFT JOIN vendor_placement vp ON km.placement_id = vp.id 
-      WHERE 1=1
+      WHERE km.is_active = true
     `;
 
     const params = [];
@@ -318,7 +339,6 @@ router.get("/with-details", async (req, res) => {
   }
 });
 
-/// DELETE /api/kanban-master/:id - FIXED VERSION WITH DATABASE TRIGGER
 router.delete("/:id", async (req, res) => {
   const client = await pool.connect();
   try {
@@ -328,7 +348,6 @@ router.delete("/:id", async (req, res) => {
 
     await client.query("BEGIN");
 
-    // ========== 1. GET PART DATA ==========
     const partQuery = await client.query(
       `SELECT 
         part_code, 
@@ -367,10 +386,12 @@ router.delete("/:id", async (req, res) => {
     // ========== 3. HAPUS SEMUA COUNTER UPDATES ==========
     // SEKARANG DATABASE TRIGGER YANG AKAN HANDLE COUNTER UPDATES
     // TIDAK PERLU LOGIC MANUAL LAGI
-    
+
     await client.query("COMMIT");
 
-    console.log("✅ Part deleted successfully. Counters updated via database triggers.");
+    console.log(
+      "✅ Part deleted successfully. Counters updated via database triggers."
+    );
 
     res.json({
       success: true,
@@ -380,7 +401,7 @@ router.delete("/:id", async (req, res) => {
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("❌ DELETE /api/kanban-master/:id Error:", error);
-    
+
     res.status(500).json({
       success: false,
       message: "Failed to delete part",
@@ -509,15 +530,6 @@ router.put("/:id", async (req, res) => {
 
     console.log("✅ Part updated:", updatedPart.part_code);
 
-    // ========== 4. HANDLE COUNTER CHANGES ==========
-    
-   
-
-   
-    
-
-
-
     await client.query("COMMIT");
 
     console.log("✅ All counters updated for part update");
@@ -548,21 +560,20 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-
 // // POST /api/kanban-master/sync-counters
 // router.post("/sync-counters", async (req, res) => {
 //   const client = await pool.connect();
 //   try {
 //     console.log("=== SYNCING ALL COUNTERS ===");
-    
+
 //     await client.query("BEGIN");
 
 //     // Sync vendor_detail
 //     await client.query(`
 //       UPDATE vendor_detail vd
 //       SET total_parts = (
-//         SELECT COUNT(*) 
-//         FROM kanban_master km 
+//         SELECT COUNT(*)
+//         FROM kanban_master km
 //         WHERE km.vendor_id = vd.id
 //           AND km.is_active = true
 //       ),
@@ -574,8 +585,8 @@ router.put("/:id", async (req, res) => {
 //     await client.query(`
 //       UPDATE part_sizes ps
 //       SET total_parts = (
-//         SELECT COUNT(*) 
-//         FROM kanban_master km 
+//         SELECT COUNT(*)
+//         FROM kanban_master km
 //         WHERE km.size_id = ps.id
 //           AND km.is_active = true
 //       ),
@@ -587,8 +598,8 @@ router.put("/:id", async (req, res) => {
 //     await client.query(`
 //       UPDATE vendor_placement vp
 //       SET total_parts = (
-//         SELECT COUNT(*) 
-//         FROM kanban_master km 
+//         SELECT COUNT(*)
+//         FROM kanban_master km
 //         WHERE km.placement_id = vp.id
 //           AND km.is_active = true
 //       ),

@@ -22,9 +22,10 @@ router.get("/", async (req, res) => {
         created_by,
         created_at,
         updated_at,
-        total_parts
+        total_parts,
+        ROW_NUMBER() OVER (ORDER BY id DESC) as row_num
       FROM vendor_detail
-      ORDER BY id DESC  -- GANTI DARI created_at DESC KE id DESC
+      ORDER BY id DESC  
     `;
 
     const { rows } = await pool.query(query);
