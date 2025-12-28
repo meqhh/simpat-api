@@ -567,6 +567,61 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// GET /api/kanban-master/qty-per-box?part_code=XXXX
+router.get("/qty-per-box", async (req, res) => {
+  try {
+    const { part_code } = req.query;
+
+    if (!part_code) {
+      return res.status(400).json({ message: "part_code is required" });
+    }
+
+    const query = `
+      SELECT 
+        km.id,
+        km.part_code,
+        km.part_name,
+        km.qty_per_box,
+        km.placement_id,
+        km.unit,
+        km.vendor_id,
+        km.size_id,
+        ps.size_name,
+        vp.length_cm,
+        vp.width_cm,
+        vp.height_cm
+      FROM public.kanban_master km
+      LEFT JOIN part_sizes ps ON km.size_id = ps.id
+      LEFT JOIN vendor_placement vp ON km.placement_id = vp.id
+      WHERE km.part_code = $1
+        AND km.is_active = TRUE
+      ORDER BY km.id DESC
+      LIMIT 1;
+    `;
+
+    const { rows } = await pool.query(query, [part_code]);
+
+    if (!rows.length) {
+      return res.json({ 
+        success: false, 
+        message: "Part code not found",
+        item: null 
+      });
+    }
+
+    return res.json({ 
+      success: true,
+      item: rows[0] 
+    });
+  } catch (err) {
+    console.error("Error /api/kanban-master/qty-per-box:", err);
+    res.status(500).json({ 
+      success: false,
+      message: "Internal server error" 
+    });
+  }
+});
+
 // // POST /api/kanban-master/sync-counters
 // router.post("/sync-counters", async (req, res) => {
 //   const client = await pool.connect();
