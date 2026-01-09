@@ -18,12 +18,13 @@ const productionSchedulesRoutes = require("./routes/productionSchedules");
 // NEW: routes yang tadi bikin 404
 const localSchedulesRoutes = require("./routes/localSchedules");
 const localScheduleVendorsRoutes = require("./routes/localScheduleVendors");
+const localSchedulePartsRoutes = require("./routes/localScheduleParts");
 const mastersRoutes = require("./routes/masters");
 const kanbanMasterRouter = require("./routes/kanbanMaster");
-const localSchedulePartsRoutes = require("./routes/localScheduleParts");
 const vendorsRoutes = require("./routes/vendors");
 const warningSettingsRoutes = require('./routes/warningSettings');
 const vendorPlacement = require('./routes/vendorPlacement');
+const qcChecksRoutes = require('./routes/qcChecks');
 const formatScheduleDates = require("./middleware/dateFormatter");
 
 
@@ -64,12 +65,13 @@ app.use("/api/production-schedules", productionSchedulesRoutes);
 // NEW: yang dipakai AddLocalSchedulePage
 app.use("/api/local-schedules", localSchedulesRoutes);          
 app.use("/api/local-schedules", localScheduleVendorsRoutes);    
+app.use("/api/local-schedules", localSchedulePartsRoutes);
 app.use("/api/masters", mastersRoutes);      
 app.use("/api/kanban-master", kanbanMasterRouter);      
-app.use("/api/local-schedules", localSchedulePartsRoutes);
 app.use("/api/vendors", vendorsRoutes);
 app.use('/api/warning-settings', warningSettingsRoutes);
 app.use('/api/vendor-placements', vendorPlacement);
+app.use('/api/qc-checks', qcChecksRoutes);
 app.use("/api/production-schedules", formatScheduleDates, productionSchedulesRoutes);
 
             

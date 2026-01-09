@@ -27,9 +27,13 @@ router.get("/by-part-code", async (req, res) => {
         km.unit,
         km.part_size,
         km.size_id,
-        ps.size_name
+        ps.size_name,
+        vd.vendor_name,
+        vd.vendor_code,
+        vd.types as vendor_type
       FROM public.kanban_master km
       LEFT JOIN part_sizes ps ON km.size_id = ps.id
+      LEFT JOIN vendor_detail vd ON km.vendor_id = vd.id
       WHERE km.part_code = $1
         AND km.is_active = TRUE
       ORDER BY km.id DESC
@@ -615,6 +619,72 @@ router.get("/qty-per-box", async (req, res) => {
     });
   } catch (err) {
     console.error("Error /api/kanban-master/qty-per-box:", err);
+    res.status(500).json({ 
+      success: false,
+      message: "Internal server error" 
+    });
+  }
+});
+
+router.get("/placement-details", async (req, res) => {
+  try {
+    const { part_code } = req.query;
+
+    if (!part_code) {
+      return res.status(400).json({ message: "part_code is required" });
+    }
+
+    const query = `
+      SELECT 
+        km.id,
+        km.part_code,
+        km.part_name,
+        km.qty_per_box,
+        km.placement_id,
+        km.part_weight,
+        km.weight_unit,
+        vp.length_cm,
+        vp.width_cm,
+        vp.height_cm,
+        vp.placement_name
+      FROM public.kanban_master km
+      LEFT JOIN vendor_placement vp ON km.placement_id = vp.id
+      WHERE km.part_code = $1
+        AND km.is_active = TRUE
+      ORDER BY km.id DESC
+      LIMIT 1;
+    `;
+
+    const { rows } = await pool.query(query, [part_code]);
+
+    if (!rows.length) {
+      return res.json({ 
+        success: false, 
+        message: "Part code not found",
+        item: null 
+      });
+    }
+
+    // Konversi satuan berat jika perlu
+    let partWeight = rows[0].part_weight || 0;
+    if (rows[0].weight_unit === "g") {
+      partWeight = partWeight / 1000;
+    } else if (rows[0].weight_unit === "lbs") {
+      partWeight = partWeight * 0.453592;
+    } else if (rows[0].weight_unit === "oz") {
+      partWeight = partWeight * 0.0283495;
+    }
+
+    return res.json({ 
+      success: true,
+      item: {
+        ...rows[0],
+        part_weight: partWeight,
+        weight_unit: "kg"
+      }
+    });
+  } catch (err) {
+    console.error("Error /api/kanban-master/placement-details:", err);
     res.status(500).json({ 
       success: false,
       message: "Internal server error" 

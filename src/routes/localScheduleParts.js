@@ -8,7 +8,7 @@ router.post("/:vendorId/parts/bulk", async (req, res) => {
   const client = await pool.connect();
   try {
     const { vendorId } = req.params;
-    const { items } = req.body; 
+    const { items } = req.body;
     // items = [{ part_code, part_name, qty, qty_box, unit, do_number }]
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -35,10 +35,9 @@ router.post("/:vendorId/parts/bulk", async (req, res) => {
         throw new Error("Missing part_code in part item");
       }
 
-      // Cari part_id dari part_detail berdasarkan part_code
       let partId = null;
       const partRes = await client.query(
-        `SELECT id FROM part_detail WHERE part_code = $1 AND is_active = true LIMIT 1`,
+        `SELECT id FROM kanban_master WHERE part_code = $1 AND is_active = true LIMIT 1`,
         [part_code.trim()]
       );
 
@@ -51,8 +50,16 @@ router.post("/:vendorId/parts/bulk", async (req, res) => {
          (local_schedule_vendor_id, part_id, part_code, part_name, quantity, quantity_box, unit, do_number)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id, local_schedule_vendor_id, part_id, part_code, part_name, quantity, quantity_box, unit, do_number`,
-        [vendorId, partId, part_code, part_name || '', 
-         Number(qty || 0), Number(qty_box || 0), unit || 'PCS', do_number || '']
+        [
+          vendorId,
+          partId,
+          part_code,
+          part_name || "",
+          Number(qty || 0),
+          Number(qty_box || 0),
+          unit || "PCS",
+          do_number || "",
+        ]
       );
       results.push(ins.rows[0]);
     }
@@ -65,7 +72,7 @@ router.post("/:vendorId/parts/bulk", async (req, res) => {
          ),
          updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
-       [vendorId]
+      [vendorId]
     );
 
     await client.query("COMMIT");
