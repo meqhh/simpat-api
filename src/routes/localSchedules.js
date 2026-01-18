@@ -14,7 +14,7 @@ const resolveEmployeeId = async (client, empName) => {
   if (!empName) return null;
   const q = await client.query(
     `SELECT id FROM employees WHERE LOWER(emp_name)=LOWER($1) LIMIT 1`,
-    [empName]
+    [empName],
   );
   return q.rows[0]?.id ?? null;
 };
@@ -34,7 +34,7 @@ router.post("/", async (req, res) => {
       `SELECT id, schedule_code FROM local_schedules 
        WHERE schedule_date = $1::date AND is_active = true 
        LIMIT 1`,
-      [scheduleDate]
+      [scheduleDate],
     );
 
     if (existingSchedule.rowCount > 0) {
@@ -55,7 +55,7 @@ router.post("/", async (req, res) => {
    RETURNING id, schedule_code, stock_level, model_name, upload_by, 
              TO_CHAR(schedule_date, 'YYYY-MM-DD') as schedule_date,
              total_vendor, total_pallet, total_item, status, created_at, updated_at, is_active`,
-      [stockLevel, modelName, uploadBy, scheduleDate]
+      [stockLevel, modelName, uploadBy, scheduleDate],
     );
 
     await client.query("COMMIT");
@@ -215,7 +215,7 @@ router.get("/", async (req, res) => {
            LEFT JOIN employees em ON em.id = lsv.move_by
            WHERE lsv.local_schedule_id = $1 AND lsv.is_active = true
            ORDER BY lsv.id ASC`,
-          [schedule.id]
+          [schedule.id],
         );
 
         // Filter vendor berdasarkan nama jika ada filter
@@ -228,7 +228,7 @@ router.get("/", async (req, res) => {
                 .includes(vendor_name.toLowerCase()) ||
               vendor.vendor_code
                 ?.toLowerCase()
-                .includes(vendor_name.toLowerCase())
+                .includes(vendor_name.toLowerCase()),
           );
         }
 
@@ -250,28 +250,31 @@ router.get("/", async (req, res) => {
                FROM local_schedule_parts lsp
                WHERE lsp.local_schedule_vendor_id = $1 AND lsp.is_active = true
                ORDER BY lsp.id ASC`,
-              [vendor.id]
+              [vendor.id],
             );
 
             // Parse prod_dates from JSON
-            const partsWithParsedDates = partsResult.rows.map(part => ({
+            const partsWithParsedDates = partsResult.rows.map((part) => ({
               ...part,
-              prod_dates: typeof part.prod_dates === 'string' 
-                ? JSON.parse(part.prod_dates) 
-                : (Array.isArray(part.prod_dates) ? part.prod_dates : [])
+              prod_dates:
+                typeof part.prod_dates === "string"
+                  ? JSON.parse(part.prod_dates)
+                  : Array.isArray(part.prod_dates)
+                    ? part.prod_dates
+                    : [],
             }));
 
             // Filter parts jika ada filter
             let filteredParts = partsWithParsedDates;
             if (part_code) {
               filteredParts = filteredParts.filter((part) =>
-                part.part_code?.toLowerCase().includes(part_code.toLowerCase())
+                part.part_code?.toLowerCase().includes(part_code.toLowerCase()),
               );
             }
 
             if (part_name) {
               filteredParts = filteredParts.filter((part) =>
-                part.part_name?.toLowerCase().includes(part_name.toLowerCase())
+                part.part_name?.toLowerCase().includes(part_name.toLowerCase()),
               );
             }
 
@@ -279,14 +282,14 @@ router.get("/", async (req, res) => {
               ...vendor,
               parts: filteredParts,
             };
-          })
+          }),
         );
 
         // Hanya return schedule jika ada vendor setelah filter
         // atau jika tidak ada filter vendor/part
         if (vendor_name || part_code || part_name) {
           const hasVendorsWithParts = vendorsWithParts.some(
-            (vendor) => vendor.parts.length > 0
+            (vendor) => vendor.parts.length > 0,
           );
           if (!hasVendorsWithParts && vendorsWithParts.length === 0) {
             return null; // Skip schedule ini
@@ -297,12 +300,12 @@ router.get("/", async (req, res) => {
           ...schedule,
           vendors: vendorsWithParts.filter((v) => v), // Hapus null jika ada
         };
-      })
+      }),
     );
 
     // Filter out null schedules
     const filteredSchedules = schedulesWithDetails.filter(
-      (schedule) => schedule !== null
+      (schedule) => schedule !== null,
     );
 
     res.json({
@@ -354,10 +357,12 @@ router.get("/received-vendors", async (req, res) => {
        LEFT JOIN vendor_detail vd ON vd.id = lsv.vendor_id
        LEFT JOIN employees em ON em.id = lsv.move_by
        WHERE lsv.vendor_status = 'Received' AND lsv.is_active = true
-       ORDER BY lsv.move_at DESC, lsv.id ASC`
+       ORDER BY lsv.move_at DESC, lsv.id ASC`,
     );
 
-    console.log(`[GET Received Vendors] Found ${vendorsResult.rows.length} vendors`);
+    console.log(
+      `[GET Received Vendors] Found ${vendorsResult.rows.length} vendors`,
+    );
 
     // Get parts for each vendor
     const vendorsWithParts = await Promise.all(
@@ -377,22 +382,25 @@ router.get("/received-vendors", async (req, res) => {
            FROM local_schedule_parts lsp
            WHERE lsp.local_schedule_vendor_id = $1 AND lsp.is_active = true
            ORDER BY lsp.id ASC`,
-          [vendor.id]
+          [vendor.id],
         );
 
         // Parse prod_dates from JSON
-        const partsWithParsedDates = partsResult.rows.map(part => ({
+        const partsWithParsedDates = partsResult.rows.map((part) => ({
           ...part,
-          prod_dates: typeof part.prod_dates === 'string' 
-            ? JSON.parse(part.prod_dates) 
-            : (Array.isArray(part.prod_dates) ? part.prod_dates : [])
+          prod_dates:
+            typeof part.prod_dates === "string"
+              ? JSON.parse(part.prod_dates)
+              : Array.isArray(part.prod_dates)
+                ? part.prod_dates
+                : [],
         }));
 
         return {
           ...vendor,
           parts: partsWithParsedDates,
         };
-      })
+      }),
     );
 
     res.json({
@@ -416,7 +424,9 @@ router.get("/received-vendors", async (req, res) => {
 router.get("/iqc-progress-vendors", async (req, res) => {
   const client = await pool.connect();
   try {
-    console.log("[GET IQC Progress Vendors] Fetching vendors with IQC Progress status");
+    console.log(
+      "[GET IQC Progress Vendors] Fetching vendors with IQC Progress status",
+    );
 
     // Get all vendors with vendor_status = 'IQC Progress'
     const vendorsResult = await client.query(
@@ -444,10 +454,12 @@ router.get("/iqc-progress-vendors", async (req, res) => {
        LEFT JOIN vendor_detail vd ON vd.id = lsv.vendor_id
        LEFT JOIN employees em ON em.id = lsv.approve_by
        WHERE lsv.vendor_status = 'IQC Progress' AND lsv.is_active = true
-       ORDER BY lsv.approve_at DESC, lsv.id ASC`
+       ORDER BY lsv.approve_at DESC, lsv.id ASC`,
     );
 
-    console.log(`[GET IQC Progress Vendors] Found ${vendorsResult.rows.length} vendors`);
+    console.log(
+      `[GET IQC Progress Vendors] Found ${vendorsResult.rows.length} vendors`,
+    );
 
     // Get parts for each vendor
     const vendorsWithParts = await Promise.all(
@@ -468,22 +480,25 @@ router.get("/iqc-progress-vendors", async (req, res) => {
            FROM local_schedule_parts lsp
            WHERE lsp.local_schedule_vendor_id = $1 AND lsp.is_active = true
            ORDER BY lsp.id ASC`,
-          [vendor.id]
+          [vendor.id],
         );
 
         // Parse prod_dates from JSON
-        const partsWithParsedDates = partsResult.rows.map(part => ({
+        const partsWithParsedDates = partsResult.rows.map((part) => ({
           ...part,
-          prod_dates: typeof part.prod_dates === 'string' 
-            ? JSON.parse(part.prod_dates) 
-            : (Array.isArray(part.prod_dates) ? part.prod_dates : [])
+          prod_dates:
+            typeof part.prod_dates === "string"
+              ? JSON.parse(part.prod_dates)
+              : Array.isArray(part.prod_dates)
+                ? part.prod_dates
+                : [],
         }));
 
         return {
           ...vendor,
           parts: partsWithParsedDates,
         };
-      })
+      }),
     );
 
     res.json({
@@ -535,10 +550,12 @@ router.get("/sample-vendors", async (req, res) => {
        LEFT JOIN vendor_detail vd ON vd.id = lsv.vendor_id
        LEFT JOIN employees em ON em.id = lsv.sample_by
        WHERE lsv.vendor_status = 'Sample' AND lsv.is_active = true
-       ORDER BY lsv.sample_at DESC, lsv.id ASC`
+       ORDER BY lsv.sample_at DESC, lsv.id ASC`,
     );
 
-    console.log(`[GET Sample Vendors] Found ${vendorsResult.rows.length} vendors`);
+    console.log(
+      `[GET Sample Vendors] Found ${vendorsResult.rows.length} vendors`,
+    );
 
     // Get parts for each vendor
     const vendorsWithParts = await Promise.all(
@@ -559,7 +576,7 @@ router.get("/sample-vendors", async (req, res) => {
            FROM local_schedule_parts lsp
            WHERE lsp.local_schedule_vendor_id = $1 AND lsp.is_active = true
            ORDER BY lsp.id ASC`,
-          [vendor.id]
+          [vendor.id],
         );
 
         // Parse prod_dates for each part
@@ -573,7 +590,10 @@ router.get("/sample-vendors", async (req, res) => {
                 parsedProdDates = part.prod_dates;
               }
             } catch (e) {
-              console.error("[GET Sample Vendors] Error parsing prod_dates:", e);
+              console.error(
+                "[GET Sample Vendors] Error parsing prod_dates:",
+                e,
+              );
             }
           }
           return {
@@ -586,7 +606,7 @@ router.get("/sample-vendors", async (req, res) => {
           ...vendor,
           parts: partsWithParsedDates,
         };
-      })
+      }),
     );
 
     res.json({
@@ -637,10 +657,12 @@ router.get("/complete-vendors", async (req, res) => {
        LEFT JOIN vendor_detail vd ON vd.id = lsv.vendor_id
        LEFT JOIN employees em ON em.id = lsv.complete_by
        WHERE lsv.vendor_status = 'Complete' AND lsv.is_active = true
-       ORDER BY lsv.complete_at DESC, lsv.id ASC`
+       ORDER BY lsv.complete_at DESC, lsv.id ASC`,
     );
 
-    console.log(`[GET Complete Vendors] Found ${vendorsResult.rows.length} vendors`);
+    console.log(
+      `[GET Complete Vendors] Found ${vendorsResult.rows.length} vendors`,
+    );
 
     const vendorsWithParts = await Promise.all(
       vendorsResult.rows.map(async (vendor) => {
@@ -660,7 +682,7 @@ router.get("/complete-vendors", async (req, res) => {
            FROM local_schedule_parts lsp
            WHERE lsp.local_schedule_vendor_id = $1 AND lsp.is_active = true
            ORDER BY lsp.id ASC`,
-          [vendor.id]
+          [vendor.id],
         );
 
         // Parse prod_dates for each part
@@ -674,7 +696,10 @@ router.get("/complete-vendors", async (req, res) => {
                 parsedProdDates = part.prod_dates;
               }
             } catch (e) {
-              console.error("[GET Complete Vendors] Error parsing prod_dates:", e);
+              console.error(
+                "[GET Complete Vendors] Error parsing prod_dates:",
+                e,
+              );
             }
           }
           return {
@@ -687,7 +712,7 @@ router.get("/complete-vendors", async (req, res) => {
           ...vendor,
           parts: partsWithParsedDates,
         };
-      })
+      }),
     );
 
     res.json({
@@ -777,7 +802,7 @@ router.get("/with-status", async (req, res) => {
            LEFT JOIN employees em ON em.id = lsv.move_by
            WHERE lsv.local_schedule_id = $1 AND lsv.is_active = true
            ORDER BY lsv.id ASC`,
-          [schedule.id]
+          [schedule.id],
         );
 
         // Get parts untuk setiap vendor (dengan remark dan prod_date)
@@ -797,21 +822,21 @@ router.get("/with-status", async (req, res) => {
                FROM local_schedule_parts lsp
                WHERE lsp.local_schedule_vendor_id = $1 AND lsp.is_active = true
                ORDER BY lsp.id ASC`,
-              [vendor.id]
+              [vendor.id],
             );
 
             return {
               ...vendor,
               parts: partsResult.rows,
             };
-          })
+          }),
         );
 
         return {
           ...schedule,
           vendors: vendorsWithParts,
         };
-      })
+      }),
     );
 
     res.json({
@@ -835,10 +860,10 @@ router.get("/with-status", async (req, res) => {
 router.get("/parts/qty-per-box/:partCode", async (req, res) => {
   try {
     const { partCode } = req.params;
-    
+
     const result = await pool.query(
       `SELECT qty_per_box FROM kanban_master WHERE part_code = $1 AND is_active = true LIMIT 1`,
-      [partCode]
+      [partCode],
     );
 
     if (result.rowCount > 0) {
@@ -914,13 +939,13 @@ router.put("/bulk/status", async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `Invalid targetTab: ${targetTab}. Valid values: ${Object.keys(
-          tabToStatusMapping
+          tabToStatusMapping,
         ).join(", ")}`,
       });
     }
 
     console.log(
-      `[BULK UPDATE] Converting: "${targetTab}" → DB status: "${finalStatus}"`
+      `[BULK UPDATE] Converting: "${targetTab}" → DB status: "${finalStatus}"`,
     );
 
     await client.query("BEGIN");
@@ -930,11 +955,11 @@ router.put("/bulk/status", async (req, res) => {
       `SELECT id, schedule_code, status 
        FROM local_schedules 
        WHERE id = ANY($1::int[]) AND is_active = true`,
-      [scheduleIds]
+      [scheduleIds],
     );
 
     console.log(
-      `[BULK UPDATE] Found ${checkResult.rowCount} schedules to update`
+      `[BULK UPDATE] Found ${checkResult.rowCount} schedules to update`,
     );
     console.log(`[BULK UPDATE] Schedules before update:`, checkResult.rows);
 
@@ -951,11 +976,11 @@ router.put("/bulk/status", async (req, res) => {
       SET status = $1, updated_at = CURRENT_TIMESTAMP
       WHERE id = ANY($2::int[]) AND is_active = true
       RETURNING id, schedule_code, status, TO_CHAR(schedule_date, 'YYYY-MM-DD') as schedule_date`,
-      [finalStatus, scheduleIds]
+      [finalStatus, scheduleIds],
     );
 
     console.log(
-      `[BULK UPDATE] Successfully updated ${updateResult.rowCount} schedules`
+      `[BULK UPDATE] Successfully updated ${updateResult.rowCount} schedules`,
     );
     console.log(`[BULK UPDATE] Updated schedules:`, updateResult.rows);
 
@@ -986,7 +1011,7 @@ router.put("/bulk/status", async (req, res) => {
 
 // PUT /api/local-schedules/parts/:id
 // Update untuk menerima prod_dates (array)
-router.put('/parts/:id', async (req, res) => {
+router.put("/parts/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -997,8 +1022,8 @@ router.put('/parts/:id', async (req, res) => {
       unit,
       remark,
       prod_date,
-      prod_dates,  // NEW: Array of dates
-      status
+      prod_dates, // NEW: Array of dates
+      status,
     } = req.body;
 
     const updateFields = [];
@@ -1044,13 +1069,15 @@ router.put('/parts/:id', async (req, res) => {
     }
 
     if (updateFields.length === 0) {
-      return res.status(400).json({ success: false, message: 'No fields to update' });
+      return res
+        .status(400)
+        .json({ success: false, message: "No fields to update" });
     }
 
     values.push(id);
     const query = `
       UPDATE local_schedule_parts 
-      SET ${updateFields.join(', ')}, updated_at = NOW()
+      SET ${updateFields.join(", ")}, updated_at = NOW()
       WHERE id = $${paramIndex}
       RETURNING *
     `;
@@ -1058,12 +1085,14 @@ router.put('/parts/:id', async (req, res) => {
     const result = await pool.query(query, values);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Part not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Part not found" });
     }
 
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
-    console.error('Error updating part:', error);
+    console.error("Error updating part:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -1075,7 +1104,11 @@ router.put("/vendors/:vendorId/status", async (req, res) => {
     const { vendorId } = req.params;
     const { status, moveByName } = req.body;
 
-    console.log(`[UPDATE Vendor Status] Request:`, { vendorId, status, moveByName });
+    console.log(`[UPDATE Vendor Status] Request:`, {
+      vendorId,
+      status,
+      moveByName,
+    });
 
     if (!status) {
       return res.status(400).json({
@@ -1093,7 +1126,7 @@ router.put("/vendors/:vendorId/status", async (req, res) => {
        FROM local_schedule_vendors lsv
        JOIN local_schedules ls ON ls.id = lsv.local_schedule_id
        WHERE lsv.id = $1 AND lsv.is_active = true`,
-      [vendorId]
+      [vendorId],
     );
 
     if (vendorCheck.rowCount === 0) {
@@ -1117,7 +1150,7 @@ router.put("/vendors/:vendorId/status", async (req, res) => {
 
     // Update vendor status with move_by, move_at, and reference fields
     let vendorResult;
-    if (status === 'Received') {
+    if (status === "Received") {
       vendorResult = await client.query(
         `UPDATE local_schedule_vendors 
          SET vendor_status = $1, 
@@ -1129,7 +1162,7 @@ router.put("/vendors/:vendorId/status", async (req, res) => {
              updated_at = CURRENT_TIMESTAMP 
          WHERE id = $6 AND is_active = true 
          RETURNING id, local_schedule_id, vendor_status, move_by, move_at`,
-        [status, moveById, scheduleDate, stockLevel, modelName, vendorId]
+        [status, moveById, scheduleDate, stockLevel, modelName, vendorId],
       );
     } else {
       vendorResult = await client.query(
@@ -1137,7 +1170,7 @@ router.put("/vendors/:vendorId/status", async (req, res) => {
          SET vendor_status = $1, updated_at = CURRENT_TIMESTAMP 
          WHERE id = $2 AND is_active = true 
          RETURNING id, local_schedule_id, vendor_status`,
-        [status, vendorId]
+        [status, vendorId],
       );
     }
 
@@ -1149,7 +1182,7 @@ router.put("/vendors/:vendorId/status", async (req, res) => {
               SUM(CASE WHEN vendor_status = $1 THEN 1 ELSE 0 END) as matched_count
        FROM local_schedule_vendors 
        WHERE local_schedule_id = $2 AND is_active = true`,
-      [status, scheduleId]
+      [status, scheduleId],
     );
 
     const { total, matched_count } = allVendorsCheck.rows[0];
@@ -1176,12 +1209,12 @@ router.put("/vendors/:vendorId/status", async (req, res) => {
          SET status = $1, updated_at = CURRENT_TIMESTAMP 
          WHERE id = $2 AND is_active = true 
          RETURNING id, schedule_code, status`,
-        [newScheduleStatus, scheduleId]
+        [newScheduleStatus, scheduleId],
       );
 
       console.log(
         `[UPDATE Vendor Status] Schedule auto-updated:`,
-        scheduleResult.rows[0]
+        scheduleResult.rows[0],
       );
     }
 
@@ -1225,7 +1258,7 @@ router.put("/vendors/:vendorId/approve", async (req, res) => {
       `SELECT id, local_schedule_id, vendor_status 
        FROM local_schedule_vendors 
        WHERE id = $1 AND is_active = true`,
-      [vendorId]
+      [vendorId],
     );
 
     if (vendorCheck.rowCount === 0) {
@@ -1243,7 +1276,7 @@ router.put("/vendors/:vendorId/approve", async (req, res) => {
     if (approveByName) {
       const empResult = await client.query(
         `SELECT id FROM employees WHERE emp_name = $1 LIMIT 1`,
-        [approveByName]
+        [approveByName],
       );
       if (empResult.rowCount > 0) {
         approveById = empResult.rows[0].id;
@@ -1259,7 +1292,7 @@ router.put("/vendors/:vendorId/approve", async (req, res) => {
            updated_at = CURRENT_TIMESTAMP 
        WHERE id = $1 AND is_active = true 
        RETURNING id, local_schedule_id, vendor_status, approve_by, approve_at`,
-      [vendorId, approveById]
+      [vendorId, approveById],
     );
 
     console.log(`[APPROVE Vendor] Vendor approved:`, vendorResult.rows[0]);
@@ -1270,7 +1303,7 @@ router.put("/vendors/:vendorId/approve", async (req, res) => {
               SUM(CASE WHEN vendor_status = 'IQC Progress' THEN 1 ELSE 0 END) as matched_count
        FROM local_schedule_vendors 
        WHERE local_schedule_id = $1 AND is_active = true`,
-      [scheduleId]
+      [scheduleId],
     );
 
     const { total, matched_count } = allVendorsCheck.rows[0];
@@ -1281,7 +1314,7 @@ router.put("/vendors/:vendorId/approve", async (req, res) => {
         `UPDATE local_schedules 
          SET status = 'IQC Progress', updated_at = CURRENT_TIMESTAMP 
          WHERE id = $1 AND is_active = true`,
-        [scheduleId]
+        [scheduleId],
       );
       console.log(`[APPROVE Vendor] Schedule auto-updated to IQC Progress`);
     }
@@ -1325,7 +1358,7 @@ router.put("/vendors/:vendorId/move-to-sample", async (req, res) => {
       `SELECT id, local_schedule_id, vendor_status 
        FROM local_schedule_vendors 
        WHERE id = $1 AND is_active = true`,
-      [vendorId]
+      [vendorId],
     );
 
     if (vendorCheck.rowCount === 0) {
@@ -1343,7 +1376,7 @@ router.put("/vendors/:vendorId/move-to-sample", async (req, res) => {
     if (moveByName) {
       const empResult = await client.query(
         `SELECT id FROM employees WHERE emp_name = $1 LIMIT 1`,
-        [moveByName]
+        [moveByName],
       );
       if (empResult.rowCount > 0) {
         sampleById = empResult.rows[0].id;
@@ -1359,7 +1392,7 @@ router.put("/vendors/:vendorId/move-to-sample", async (req, res) => {
            updated_at = CURRENT_TIMESTAMP 
        WHERE id = $1 AND is_active = true 
        RETURNING id, local_schedule_id, vendor_status, sample_by, sample_at`,
-      [vendorId, sampleById]
+      [vendorId, sampleById],
     );
 
     console.log(`[MOVE TO SAMPLE] Vendor moved:`, vendorResult.rows[0]);
@@ -1370,7 +1403,7 @@ router.put("/vendors/:vendorId/move-to-sample", async (req, res) => {
               SUM(CASE WHEN vendor_status = 'Sample' THEN 1 ELSE 0 END) as matched_count
        FROM local_schedule_vendors 
        WHERE local_schedule_id = $1 AND is_active = true`,
-      [scheduleId]
+      [scheduleId],
     );
 
     const { total, matched_count } = allVendorsCheck.rows[0];
@@ -1381,7 +1414,7 @@ router.put("/vendors/:vendorId/move-to-sample", async (req, res) => {
         `UPDATE local_schedules 
          SET status = 'Sample', updated_at = CURRENT_TIMESTAMP 
          WHERE id = $1 AND is_active = true`,
-        [scheduleId]
+        [scheduleId],
       );
       console.log(`[MOVE TO SAMPLE] Schedule auto-updated to Sample`);
     }
@@ -1425,7 +1458,7 @@ router.put("/vendors/:vendorId/move-to-complete", async (req, res) => {
       `SELECT id, local_schedule_id, vendor_status 
        FROM local_schedule_vendors 
        WHERE id = $1 AND is_active = true`,
-      [vendorId]
+      [vendorId],
     );
 
     if (vendorCheck.rowCount === 0) {
@@ -1443,7 +1476,7 @@ router.put("/vendors/:vendorId/move-to-complete", async (req, res) => {
     if (moveByName) {
       const empResult = await client.query(
         `SELECT id FROM employees WHERE emp_name = $1 LIMIT 1`,
-        [moveByName]
+        [moveByName],
       );
       if (empResult.rowCount > 0) {
         completeById = empResult.rows[0].id;
@@ -1459,7 +1492,7 @@ router.put("/vendors/:vendorId/move-to-complete", async (req, res) => {
            updated_at = CURRENT_TIMESTAMP 
        WHERE id = $1 AND is_active = true 
        RETURNING id, local_schedule_id, vendor_status, complete_by, complete_at`,
-      [vendorId, completeById]
+      [vendorId, completeById],
     );
 
     console.log(`[MOVE TO COMPLETE] Vendor moved:`, vendorResult.rows[0]);
@@ -1470,7 +1503,7 @@ router.put("/vendors/:vendorId/move-to-complete", async (req, res) => {
               SUM(CASE WHEN vendor_status = 'Complete' THEN 1 ELSE 0 END) as matched_count
        FROM local_schedule_vendors 
        WHERE local_schedule_id = $1 AND is_active = true`,
-      [scheduleId]
+      [scheduleId],
     );
 
     const { total, matched_count } = allVendorsCheck.rows[0];
@@ -1481,7 +1514,7 @@ router.put("/vendors/:vendorId/move-to-complete", async (req, res) => {
         `UPDATE local_schedules 
          SET status = 'Complete', updated_at = CURRENT_TIMESTAMP 
          WHERE id = $1 AND is_active = true`,
-        [scheduleId]
+        [scheduleId],
       );
       console.log(`[MOVE TO COMPLETE] Schedule auto-updated to Complete`);
     }
@@ -1524,7 +1557,7 @@ router.put("/vendors/:vendorId/return", async (req, res) => {
       `SELECT id, local_schedule_id, vendor_status 
        FROM local_schedule_vendors 
        WHERE id = $1 AND is_active = true`,
-      [vendorId]
+      [vendorId],
     );
 
     if (vendorCheck.rowCount === 0) {
@@ -1546,17 +1579,20 @@ router.put("/vendors/:vendorId/return", async (req, res) => {
            updated_at = CURRENT_TIMESTAMP 
        WHERE id = $1 AND is_active = true 
        RETURNING id, local_schedule_id, vendor_status`,
-      [vendorId]
+      [vendorId],
     );
 
-    console.log(`[RETURN Vendor] Vendor returned to Today:`, vendorResult.rows[0]);
+    console.log(
+      `[RETURN Vendor] Vendor returned to Today:`,
+      vendorResult.rows[0],
+    );
 
     // Update schedule status back to Today
     await client.query(
       `UPDATE local_schedules 
        SET status = 'Today', updated_at = CURRENT_TIMESTAMP 
        WHERE id = $1 AND is_active = true`,
-      [scheduleId]
+      [scheduleId],
     );
 
     await client.query("COMMIT");
@@ -1575,6 +1611,82 @@ router.put("/vendors/:vendorId/return", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to return vendor",
+      error: error.message,
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// ====== RETURN VENDOR FROM SAMPLE TO IQC PROGRESS ======
+router.put("/vendors/:vendorId/return-to-iqc", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { vendorId } = req.params;
+
+    console.log(`[RETURN to IQC] Request:`, { vendorId });
+
+    await client.query("BEGIN");
+
+    // Cek apakah vendor exists dan statusnya Sample
+    const vendorCheck = await client.query(
+      `SELECT id, local_schedule_id, vendor_status 
+       FROM local_schedule_vendors 
+       WHERE id = $1 AND is_active = true`,
+      [vendorId],
+    );
+
+    if (vendorCheck.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    const scheduleId = vendorCheck.rows[0].local_schedule_id;
+
+    // Update vendor status back to IQC Progress (clear sample_by and sample_at)
+    const vendorResult = await client.query(
+      `UPDATE local_schedule_vendors 
+       SET vendor_status = 'IQC Progress', 
+           sample_by = NULL, 
+           sample_at = NULL,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $1 AND is_active = true 
+       RETURNING id, local_schedule_id, vendor_status`,
+      [vendorId],
+    );
+
+    console.log(
+      `[RETURN to IQC] Vendor returned to IQC Progress:`,
+      vendorResult.rows[0],
+    );
+
+    // Update schedule status back to IQC Progress
+    await client.query(
+      `UPDATE local_schedules 
+       SET status = 'IQC Progress', updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $1 AND is_active = true`,
+      [scheduleId],
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      message: "Vendor returned to IQC Progress tab",
+      data: {
+        vendor: vendorResult.rows[0],
+        scheduleId: scheduleId,
+      },
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[RETURN to IQC] Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to return vendor to IQC Progress",
       error: error.message,
     });
   } finally {
@@ -1611,7 +1723,7 @@ router.put("/:id", async (req, res) => {
     const scheduleCheck = await client.query(
       `SELECT id, schedule_code, status FROM local_schedules 
        WHERE id = $1 AND is_active = true`,
-      [id]
+      [id],
     );
 
     if (scheduleCheck.rowCount === 0) {
@@ -1636,7 +1748,7 @@ router.put("/:id", async (req, res) => {
        WHERE id = $5 AND is_active = true 
        RETURNING id, schedule_code, TO_CHAR(schedule_date, 'YYYY-MM-DD') as schedule_date, stock_level, model_name, 
                  upload_by, status, updated_at`,
-      [scheduleDate, stockLevel, modelName, uploadBy, id]
+      [scheduleDate, stockLevel, modelName, uploadBy, id],
     );
 
     await client.query("COMMIT");
@@ -1700,7 +1812,7 @@ router.put("/:id/status", async (req, res) => {
        SET status = $1, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $2 AND is_active = true 
        RETURNING id, schedule_code, status`,
-      [status, id]
+      [status, id],
     );
 
     if (result.rowCount === 0) {
@@ -1736,7 +1848,12 @@ router.post("/:scheduleId/vendors", async (req, res) => {
     const { scheduleId } = req.params;
     const { trip_id, vendor_id, do_numbers } = req.body;
 
-    console.log(`[ADD Vendor] Request:`, { scheduleId, trip_id, vendor_id, do_numbers });
+    console.log(`[ADD Vendor] Request:`, {
+      scheduleId,
+      trip_id,
+      vendor_id,
+      do_numbers,
+    });
 
     if (!trip_id || !vendor_id || !do_numbers) {
       return res.status(400).json({
@@ -1750,7 +1867,7 @@ router.post("/:scheduleId/vendors", async (req, res) => {
     // Cek schedule exists
     const scheduleCheck = await client.query(
       `SELECT id, schedule_date, stock_level, model_name FROM local_schedules WHERE id = $1 AND is_active = true`,
-      [scheduleId]
+      [scheduleId],
     );
 
     if (scheduleCheck.rowCount === 0) {
@@ -1764,7 +1881,7 @@ router.post("/:scheduleId/vendors", async (req, res) => {
     // Get trip arrival time
     const tripCheck = await client.query(
       `SELECT id, arv_to FROM trips WHERE id = $1`,
-      [trip_id]
+      [trip_id],
     );
 
     if (tripCheck.rowCount === 0) {
@@ -1776,7 +1893,9 @@ router.post("/:scheduleId/vendors", async (req, res) => {
     }
 
     const arrivalTime = tripCheck.rows[0].arv_to;
-    const doJoined = Array.isArray(do_numbers) ? do_numbers.join(" | ") : do_numbers;
+    const doJoined = Array.isArray(do_numbers)
+      ? do_numbers.join(" | ")
+      : do_numbers;
 
     // Insert vendor
     const result = await client.query(
@@ -1784,7 +1903,7 @@ router.post("/:scheduleId/vendors", async (req, res) => {
        (local_schedule_id, trip_id, vendor_id, do_numbers, arrival_time, total_pallet, total_item)
        VALUES ($1, $2, $3, $4, $5, 0, 0)
        RETURNING id, local_schedule_id, trip_id, vendor_id, do_numbers, arrival_time`,
-      [scheduleId, trip_id, vendor_id, doJoined, arrivalTime]
+      [scheduleId, trip_id, vendor_id, doJoined, arrivalTime],
     );
 
     // Update total_vendor di schedule
@@ -1795,7 +1914,7 @@ router.post("/:scheduleId/vendors", async (req, res) => {
        ),
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
-      [scheduleId]
+      [scheduleId],
     );
 
     await client.query("COMMIT");
@@ -1825,9 +1944,17 @@ router.post("/vendors/:vendorId/parts", async (req, res) => {
   const client = await pool.connect();
   try {
     const { vendorId } = req.params;
-    const { part_code, part_name, quantity, quantity_box, unit, do_number } = req.body;
+    const { part_code, part_name, quantity, quantity_box, unit, do_number } =
+      req.body;
 
-    console.log(`[ADD Part] Request:`, { vendorId, part_code, part_name, quantity, quantity_box, unit });
+    console.log(`[ADD Part] Request:`, {
+      vendorId,
+      part_code,
+      part_name,
+      quantity,
+      quantity_box,
+      unit,
+    });
 
     if (!part_code) {
       return res.status(400).json({
@@ -1841,7 +1968,7 @@ router.post("/vendors/:vendorId/parts", async (req, res) => {
     // Cek vendor exists
     const vendorCheck = await client.query(
       `SELECT id, local_schedule_id FROM local_schedule_vendors WHERE id = $1 AND is_active = true`,
-      [vendorId]
+      [vendorId],
     );
 
     if (vendorCheck.rowCount === 0) {
@@ -1858,7 +1985,7 @@ router.post("/vendors/:vendorId/parts", async (req, res) => {
     let partId = null;
     const partRes = await client.query(
       `SELECT id FROM kanban_master WHERE part_code = $1 AND is_active = true LIMIT 1`,
-      [part_code.trim()]
+      [part_code.trim()],
     );
     if (partRes.rows[0]) {
       partId = partRes.rows[0].id;
@@ -1870,7 +1997,16 @@ router.post("/vendors/:vendorId/parts", async (req, res) => {
        (local_schedule_vendor_id, part_id, part_code, part_name, quantity, quantity_box, unit, do_number)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, part_code, part_name, quantity as qty, quantity_box as qty_box, unit`,
-      [vendorId, partId, part_code, part_name || "", Number(quantity) || 0, Number(quantity_box) || 0, unit || "PCS", do_number || ""]
+      [
+        vendorId,
+        partId,
+        part_code,
+        part_name || "",
+        Number(quantity) || 0,
+        Number(quantity_box) || 0,
+        unit || "PCS",
+        do_number || "",
+      ],
     );
 
     // Update total_item di vendor
@@ -1881,7 +2017,7 @@ router.post("/vendors/:vendorId/parts", async (req, res) => {
        ),
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
-      [vendorId]
+      [vendorId],
     );
 
     // Update total_item di schedule
@@ -1895,7 +2031,7 @@ router.post("/vendors/:vendorId/parts", async (req, res) => {
        ),
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
-      [scheduleId]
+      [scheduleId],
     );
 
     await client.query("COMMIT");
@@ -1934,7 +2070,7 @@ router.delete("/:id", async (req, res) => {
     const scheduleCheck = await client.query(
       `SELECT id, schedule_code, status FROM local_schedules 
        WHERE id = $1 AND is_active = true`,
-      [id]
+      [id],
     );
 
     if (scheduleCheck.rowCount === 0) {
@@ -1942,7 +2078,7 @@ router.delete("/:id", async (req, res) => {
       console.log(`[DELETE Schedule] Schedule ${id} not found`);
       return res.status(404).json({
         success: false,
-        message: "Schedule not found or already deleted"
+        message: "Schedule not found or already deleted",
       });
     }
 
@@ -1953,11 +2089,13 @@ router.delete("/:id", async (req, res) => {
     const vendorIdsResult = await client.query(
       `SELECT id FROM local_schedule_vendors 
        WHERE local_schedule_id = $1 AND is_active = true`,
-      [id]
+      [id],
     );
 
-    const vendorIds = vendorIdsResult.rows.map(row => row.id);
-    console.log(`[DELETE Schedule] Found ${vendorIds.length} vendors to delete`);
+    const vendorIds = vendorIdsResult.rows.map((row) => row.id);
+    console.log(
+      `[DELETE Schedule] Found ${vendorIds.length} vendors to delete`,
+    );
 
     let deletedParts = 0;
     let deletedVendors = 0;
@@ -1968,7 +2106,7 @@ router.delete("/:id", async (req, res) => {
         `DELETE FROM local_schedule_parts 
          WHERE local_schedule_vendor_id = ANY($1::int[])
          RETURNING id`,
-        [vendorIds]
+        [vendorIds],
       );
       deletedParts = partsDeleteResult.rowCount;
       console.log(`[DELETE Schedule] Deleted ${deletedParts} parts`);
@@ -1979,7 +2117,7 @@ router.delete("/:id", async (req, res) => {
       `DELETE FROM local_schedule_vendors 
        WHERE local_schedule_id = $1
        RETURNING id`,
-      [id]
+      [id],
     );
     deletedVendors = vendorsDeleteResult.rowCount;
     console.log(`[DELETE Schedule] Deleted ${deletedVendors} vendors`);
@@ -1989,10 +2127,13 @@ router.delete("/:id", async (req, res) => {
       `DELETE FROM local_schedules 
        WHERE id = $1 
        RETURNING id, schedule_code, status, schedule_date`,
-      [id]
+      [id],
     );
 
-    console.log(`[DELETE Schedule] Deleted schedule:`, scheduleDeleteResult.rows[0]);
+    console.log(
+      `[DELETE Schedule] Deleted schedule:`,
+      scheduleDeleteResult.rows[0],
+    );
 
     await client.query("COMMIT");
 
@@ -2004,17 +2145,16 @@ router.delete("/:id", async (req, res) => {
       data: {
         schedule: scheduleDeleteResult.rows[0],
         deletedVendors: deletedVendors,
-        deletedParts: deletedParts
-      }
+        deletedParts: deletedParts,
+      },
     });
-
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("[DELETE Schedule] Error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to delete schedule",
-      error: error.message
+      error: error.message,
     });
   } finally {
     client.release();
@@ -2035,7 +2175,7 @@ router.delete("/vendors/:vendorId", async (req, res) => {
     const vendorCheck = await client.query(
       `SELECT id, local_schedule_id FROM local_schedule_vendors 
        WHERE id = $1 AND is_active = true`,
-      [vendorId]
+      [vendorId],
     );
 
     if (vendorCheck.rowCount === 0) {
@@ -2056,7 +2196,7 @@ router.delete("/vendors/:vendorId", async (req, res) => {
       `DELETE FROM local_schedule_parts 
        WHERE local_schedule_vendor_id = $1
        RETURNING id`,
-      [vendorId]
+      [vendorId],
     );
     const deletedParts = partsDeleteResult.rowCount;
     console.log(`[DELETE Vendor] Deleted ${deletedParts} parts`);
@@ -2066,7 +2206,7 @@ router.delete("/vendors/:vendorId", async (req, res) => {
       `DELETE FROM local_schedule_vendors 
        WHERE id = $1 
        RETURNING id`,
-      [vendorId]
+      [vendorId],
     );
     console.log(`[DELETE Vendor] Deleted vendor:`, vendorDeleteResult.rows[0]);
 
@@ -2086,17 +2226,17 @@ router.delete("/vendors/:vendorId", async (req, res) => {
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $1
        RETURNING total_vendor, total_item`,
-      [scheduleId]
+      [scheduleId],
     );
     console.log(
       `[DELETE Vendor] Updated schedule totals:`,
-      updateResult.rows[0]
+      updateResult.rows[0],
     );
 
     await client.query("COMMIT");
 
     console.log(
-      `[DELETE Vendor] Successfully deleted vendor ${vendorId} with all parts`
+      `[DELETE Vendor] Successfully deleted vendor ${vendorId} with all parts`,
     );
 
     res.json({
@@ -2135,7 +2275,7 @@ router.delete("/parts/:partId", async (req, res) => {
     const partCheck = await client.query(
       `SELECT id, local_schedule_vendor_id FROM local_schedule_parts 
        WHERE id = $1 AND is_active = true`,
-      [partId]
+      [partId],
     );
 
     if (partCheck.rowCount === 0) {
@@ -2156,7 +2296,7 @@ router.delete("/parts/:partId", async (req, res) => {
       `DELETE FROM local_schedule_parts 
        WHERE id = $1 
        RETURNING id`,
-      [partId]
+      [partId],
     );
     console.log(`[DELETE Part] Deleted part:`, partDeleteResult.rows[0]);
 
@@ -2170,13 +2310,13 @@ router.delete("/parts/:partId", async (req, res) => {
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $1
        RETURNING total_item, local_schedule_id`,
-      [vendorId]
+      [vendorId],
     );
 
     const scheduleId = updateVendorResult.rows[0].local_schedule_id;
     console.log(
       `[DELETE Part] Updated vendor total_item:`,
-      updateVendorResult.rows[0]
+      updateVendorResult.rows[0],
     );
 
     // 4. Update total_item di schedule header
@@ -2191,11 +2331,11 @@ router.delete("/parts/:partId", async (req, res) => {
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $1
        RETURNING total_item`,
-      [scheduleId]
+      [scheduleId],
     );
     console.log(
       `[DELETE Part] Updated schedule total_item:`,
-      updateScheduleResult.rows[0]
+      updateScheduleResult.rows[0],
     );
 
     await client.query("COMMIT");
@@ -2231,7 +2371,7 @@ router.delete("/:scheduleId/vendors/:vendorId", async (req, res) => {
     const { scheduleId, vendorId } = req.params;
 
     console.log(
-      `[DELETE Vendor Alt] Deleting vendor ${vendorId} from schedule ${scheduleId}`
+      `[DELETE Vendor Alt] Deleting vendor ${vendorId} from schedule ${scheduleId}`,
     );
 
     await client.query("BEGIN");
@@ -2240,7 +2380,7 @@ router.delete("/:scheduleId/vendors/:vendorId", async (req, res) => {
     const vendorCheck = await client.query(
       `SELECT id FROM local_schedule_vendors 
        WHERE id = $1 AND local_schedule_id = $2 AND is_active = true`,
-      [vendorId, scheduleId]
+      [vendorId, scheduleId],
     );
 
     if (vendorCheck.rowCount === 0) {
@@ -2256,7 +2396,7 @@ router.delete("/:scheduleId/vendors/:vendorId", async (req, res) => {
       `DELETE FROM local_schedule_parts 
        WHERE local_schedule_vendor_id = $1
        RETURNING id`,
-      [vendorId]
+      [vendorId],
     );
     const deletedParts = partsDeleteResult.rowCount;
     console.log(`[DELETE Vendor Alt] Deleted ${deletedParts} parts`);
@@ -2265,7 +2405,7 @@ router.delete("/:scheduleId/vendors/:vendorId", async (req, res) => {
     await client.query(
       `DELETE FROM local_schedule_vendors 
        WHERE id = $1`,
-      [vendorId]
+      [vendorId],
     );
     console.log(`[DELETE Vendor Alt] Deleted vendor ${vendorId}`);
 
@@ -2284,7 +2424,7 @@ router.delete("/:scheduleId/vendors/:vendorId", async (req, res) => {
        ),
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
-      [scheduleId]
+      [scheduleId],
     );
 
     await client.query("COMMIT");
@@ -2317,7 +2457,7 @@ router.delete("/vendors/:vendorId/parts/:partId", async (req, res) => {
     const { vendorId, partId } = req.params;
 
     console.log(
-      `[DELETE Part Alt] Deleting part ${partId} from vendor ${vendorId}`
+      `[DELETE Part Alt] Deleting part ${partId} from vendor ${vendorId}`,
     );
 
     await client.query("BEGIN");
@@ -2326,7 +2466,7 @@ router.delete("/vendors/:vendorId/parts/:partId", async (req, res) => {
     const partCheck = await client.query(
       `SELECT id FROM local_schedule_parts 
        WHERE id = $1 AND local_schedule_vendor_id = $2 AND is_active = true`,
-      [partId, vendorId]
+      [partId, vendorId],
     );
 
     if (partCheck.rowCount === 0) {
@@ -2341,7 +2481,7 @@ router.delete("/vendors/:vendorId/parts/:partId", async (req, res) => {
     await client.query(
       `DELETE FROM local_schedule_parts 
        WHERE id = $1`,
-      [partId]
+      [partId],
     );
     console.log(`[DELETE Part Alt] Deleted part ${partId}`);
 
@@ -2355,7 +2495,7 @@ router.delete("/vendors/:vendorId/parts/:partId", async (req, res) => {
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $1
        RETURNING local_schedule_id`,
-      [vendorId]
+      [vendorId],
     );
 
     const scheduleId = vendorUpdate.rows[0].local_schedule_id;
@@ -2371,7 +2511,7 @@ router.delete("/vendors/:vendorId/parts/:partId", async (req, res) => {
        ),
        updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
-      [scheduleId]
+      [scheduleId],
     );
 
     await client.query("COMMIT");
