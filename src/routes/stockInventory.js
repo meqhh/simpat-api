@@ -51,6 +51,8 @@ router.get("/overview", async (req, res) => {
         COALESCE(km.stock_m136, 0) as stock_m136,
         COALESCE(km.stock_m1y2, 0) as stock_m1y2,
         COALESCE(km.stock_rtv, 0) as stock_rtv,
+        COALESCE(km.stock_hold, 0) as stock_hold,
+        COALESCE(km.monthly_scrap, 0) as monthly_scrap,
         km.unit,
         km.qty_per_box
       FROM kanban_master km
